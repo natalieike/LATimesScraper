@@ -1,0 +1,21 @@
+body{
+	font-family: 'Roboto Slab', serif;
+}
+
+.blueStyle{
+	background-color: #004d99;
+	color: #ffffff;
+}
+
+.lightBlueStyle{
+	background-color: #e6f2ff;
+	color: #000d1a;
+}
+
+.panel{
+	border: solid 2px darkgrey;
+}
+
+.container-body{
+	margin-top: 8%;
+}

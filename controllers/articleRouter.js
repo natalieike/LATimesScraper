@@ -21,15 +21,20 @@ db.on("error", function(error){
 	console.log("Database Error: " + error);
 })
 
+//loops thru an array and eliminates any objects that are already in the database
 var eliminateDupes = function(arr, index, cb){
-	console.log(arr[index].link);
-	db.articles.find({link: arr[index].link, headline: arr[index].headline}, function(err, data){
-		if(data.length > 1){
-			arr.splice(index, 1);
-			console.log("found a dupe");
-			console.log(arr);
+	db.articles.find({link: arr[index].link}, function(err, data){
+		if(err){
+			console.log(err);
 		}
-		index++;
+
+		if(data.length > 0){
+			arr.splice(index, 1);
+		}
+		else{
+			index++;		
+		}
+
 		if(index < arr.length){
 			eliminateDupes(arr, index, cb);
 		}
@@ -39,14 +44,26 @@ var eliminateDupes = function(arr, index, cb){
 	});
 };
 
+//Re-direct to Scraper when page is first loaded
+arouter.get("/", function(req, res){
+	res.redirect("/scraper");
+});
+
 // Gets all of the LA Times articles from the database
 arouter.get("/all", function(req, res){
 	db.articles.find().sort({time:-1}, function(err, data){
+		var renderObj = {
+			articleObj: []
+		};
 		if(err){
 			return console.log(err);
 		}
-//		res.render("index", data);
-		res.json(data);
+		for(var i = 0; i < data.length; i++){
+			renderObj.articleObj[i] = data[i];
+			renderObj.articleObj[i].commentsLength = renderObj.articleObj[i].comments.length;
+		}
+		res.render("index", renderObj);
+//		res.json(data);
 	});
 });
 
@@ -76,69 +93,80 @@ arouter.get("/scraper", function(req, res){
 		var $ = cheerio.load(html);
 		var insertArticles = [];
 
-		//Scrapes the Primary Item articles - these will have headlines and slugs
+//Scrapes the Primary Item articles - these will have headlines and slugs
 		$("article.trb_outfit_primaryItem_article").each(function(i, element){
-			var link = $(element).find("h2").find("a").attr("href");
-			var headline = $(element).find("h2").find("a").text();
-			var section = $(element).find("span.trb_outfit_categorySectionHeading").find("a").text();
-			var slug = $(element).find("span.trb_outfit_primaryItem_article_content_text").text();
+			var link = $(element).find("h2").find("a").attr("href").trim();
+			var headline = $(element).find("h2").find("a").text().trim();
+			var section = $(element).find("span.trb_outfit_categorySectionHeading").find("a").text().trim();
+			var slug = $(element).find("span.trb_outfit_primaryItem_article_content_text").text().trim();
 			var now = moment().format("YYYY MM DD hh:mm:ss");
 			var newArticle = {
 				link: link,
 				headline: headline,
 				slug: slug,
 				section: section,
+				comments: [],
 				time: now,
 				primary: true
 			};
-/*			db.articles.find({link: link}, function(err, data){
-				if(data.length <1){
-					console.log("new article");
-					insertArticles.push(newArticle);
-				}		
-			});
-*/
 			if(link){
 				insertArticles.push(newArticle);	
 			}
 		});
 
-		//Scrapes all of the listed headlines that are not Primary Item articles - these will only have headlines - no slugs
-		$("li.trb_outfit_group_list_item").each(function(i, element){
-			var link = $(element).find("a.outfit_related_ListTitle_a").attr("href");
-			var headline = $(element).find("a.outfit_related_ListTitle_a").text();
-			var section = $(element).attr("data-content-section");
+//Scrapes all of the listed headlines that are not Primary Item articles
+		$("li.trb_outfit_list_headline").each(function(i, element){
+			var link = $(element).find("a").attr("href").trim();
+			var headline = $(element).find("a").find("h4").text().trim();
+			var section = $(element).attr("data-content-section").trim();
 			var now = moment().format("YYYY MM DD hh:mm:ss");
 			var newArticle = {
 				link: link,
 				headline: headline,
 				section: section,
+				comments: [],
 				time: now,
 				primary: false
 			};
-/*			db.articles.find({link: link}, function(err, data){
-				if(data.length <1){
-					insertArticles.push(newArticle);
-				}		
-			});
-*/
 			if(link){
 				insertArticles.push(newArticle);	
 			}
 		});
+
 		eliminateDupes(insertArticles, 0, function(err, artArr){
-			console.log(artArr);
 			if (artArr.length > 0){
 				db.articles.insert(artArr, function(err, data){
-					console.log("in insert");
 					res.redirect("/all");
+					insertArticles = [];
 				});
 			}
 			else{
+				insertArticles = [];
 				res.redirect("/all");
 			}
 		});
 	});
+});
+
+arouter.post("/comments/:id", function(req, res){
+	var id = 'ObjectId("' + req.params.id + '")';
+	var commentText = req.body.commentText;
+	var commentUser = req.body.commentUser;
+	var now = moment().format("YYYY MM DD hh:mm:ss");
+	var newComment = {
+		commentText: commentText,
+		commentUser: commentUser,
+		commentTime: now
+	}
+	console.log(id);
+	db.articles.find({_id: id}, function(err, data){
+		commentArray = data.comments;
+		commentArray.push(newComment);
+		db.articles.update({_id: id}, {$set: {comments: data.comments}}, {}, function(err, result){
+			res.redirect("/all");
+		});
+	});
+
 });
 
 module.exports = arouter;
