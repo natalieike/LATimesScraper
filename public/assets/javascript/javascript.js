@@ -7,6 +7,6 @@ $(".showBtn").click(function(event){
 		$(btnId).text("Hide Comments");
 	}else{
 		$(idSelector).attr("class", "hidden");
-		$(btnId).text("Show {{commentsLength}} Comments");
+		$(btnId).text("Show Comments");
 	}
 });

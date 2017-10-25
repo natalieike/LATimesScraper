@@ -3,17 +3,19 @@
 	{{#each articleObj}}
 		<div class="panel">
 			<div class="panel-heading lightBlueStyle">
-				<a href = "www.latimes.com{{link}}">{{headline}}</a>
+				<a href = "http://www.latimes.com{{link}}">{{headline}}</a>
 			</div> <!--/.panel-heading-->
 			<div class="panel-body">
 				<p>{{slug}}</p>
 				<p>Section: {{section}}</p>
 				<p>Time Scraped: {{time}}</p>
-				<button type="button" class="btn btn-primary showBtn" id="showBtn{{_id}}" data_value="{{_id}}">Show {{commentsLength}} Comments</button>
+				<p>Comments: {{commentsLength}}</p>
+				<button type="button" class="btn btn-primary showBtn" id="showBtn{{_id}}" data_value="{{_id}}">Show Comments</button>
 				<div class="hidden" id="{{_id}}">
 					{{#each comments}}
+						<hr>
 						<div>
-							<p>{{commentText}}</p>
+							<p class="commentText">{{commentText}}</p>
 							<p>User: {{commentUser}}</p>
 							<p>Time: {{commentTime}}</p>
 						</div>

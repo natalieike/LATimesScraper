@@ -19,3 +19,8 @@ body{
 .container-body{
 	margin-top: 8%;
 }
+
+.commentText{
+	font-weight: bold;
+	font-size: 16px;
+}
