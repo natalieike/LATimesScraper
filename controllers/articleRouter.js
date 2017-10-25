@@ -149,7 +149,7 @@ arouter.get("/scraper", function(req, res){
 });
 
 arouter.post("/comments/:id", function(req, res){
-	var id = 'ObjectId("' + req.params.id + '")';
+	var id = req.params.id;
 	var commentText = req.body.commentText;
 	var commentUser = req.body.commentUser;
 	var now = moment().format("YYYY MM DD hh:mm:ss");
@@ -158,11 +158,11 @@ arouter.post("/comments/:id", function(req, res){
 		commentUser: commentUser,
 		commentTime: now
 	}
-	console.log(id);
-	db.articles.find({_id: id}, function(err, data){
-		commentArray = data.comments;
+	db.articles.find({_id: mongojs.ObjectId(id)}, function(err, data){
+		console.log(data);
+		commentArray = data[0].comments;
 		commentArray.push(newComment);
-		db.articles.update({_id: id}, {$set: {comments: data.comments}}, {}, function(err, result){
+		db.articles.update({_id: mongojs.ObjectId(id)}, {$set: {comments: commentArray}}, {}, function(err, result){
 			res.redirect("/all");
 		});
 	});

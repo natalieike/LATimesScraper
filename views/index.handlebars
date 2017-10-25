@@ -9,7 +9,7 @@
 				<p>{{slug}}</p>
 				<p>Section: {{section}}</p>
 				<p>Time Scraped: {{time}}</p>
-				<button type="button" class="btn btn-primary showBtn" data_value="{{_id}}">Show {{commentsLength}} Comments</button>
+				<button type="button" class="btn btn-primary showBtn" id="showBtn{{_id}}" data_value="{{_id}}">Show {{commentsLength}} Comments</button>
 				<div class="hidden" id="{{_id}}">
 					{{#each comments}}
 						<div>
@@ -20,9 +20,9 @@
 					{{/each}}
 				</div> <!--/.hidden-->
 				<hr>
-				<form action="/comments/{{_id}}?_method=POST" method="POST">
-					<textarea class="form-control" rows="3" name="commentText" placeholder="Comment"></textarea>
-					<input type="text" name="commentUser" placeholder="User Name">
+				<form action="/comments/{{_id}}" method="POST">
+					<textarea class="form-control" rows="3" name="commentText" id="commentText" placeholder="Comment"></textarea>
+					<input type="text" name="commentUser" id="commentUser" placeholder="User Name">
 					<button type="submit" class="btn btn-primary">Add Comment</button>
 				</form>
 			</div> <!--/.panel-body-->
