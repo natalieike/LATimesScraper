@@ -1,10 +1,9 @@
 //Dependencies
 var express = require("express");
-var mongojs = require("mongojs");
 var bodyParser = require("body-parser");
 var handlebars = require("express-handlebars");
 var path = require("path");
-var arouter = require("./controllers/articleRouter.js");
+var arouter = require("./controllers/mongooseRouter.js");
 
 //Initialize Express
 var app = express();

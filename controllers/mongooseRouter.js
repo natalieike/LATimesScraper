@@ -1,16 +1,14 @@
-/* 
-Depricated - uses mongojs.  
-Re-done router using mongoose at mongooseRouter.js 
-*/
-
 //Dependencies
 var express = require("express");
 var arouter = express.Router();
 var bodyParser = require("body-parser");
-var mongojs = require("mongojs");
+var mongoose = require("mongoose");
 var request = require("request");
 var cheerio = require("cheerio");
 var moment = require("moment");
+
+// Require all models
+var db = require("../models");
 
 //Set up parsing
 arouter.use(bodyParser.urlencoded({ extended: true }));
@@ -18,35 +16,44 @@ arouter.use(bodyParser.json());
 arouter.use(bodyParser.text());
 arouter.use(bodyParser.json({ type: "application/vnd.api+json" }));
 
-//Initialize MongoJS
-var databaseUrl = "latimesScraper";
-var collections = ["articles"];
-var db = mongojs(databaseUrl, collections);
-db.on("error", function(error){
-	console.log("Database Error: " + error);
-})
+//Initialize Mongo Database via Mongoose
+var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost/latimesScraper"
+
+mongoose.Promise = Promise;
+mongoose.connect(MONGODB_URI, {
+  useMongoClient: true
+});
 
 //loops thru an array and eliminates any objects that are already in the database
 var eliminateDupes = function(arr, index, cb){
-	db.articles.find({link: arr[index].link}, function(err, data){
-		if(err){
-			console.log(err);
-		}
-
+	db.Article.find({link: arr[index].link}).then(function(data){
 		if(data.length > 0){
-			arr.splice(index, 1);
+			index++;
+			if(index < arr.length){
+				eliminateDupes(arr, index, cb);
+			}
+			else{
+				cb(arr);
+			}
 		}
 		else{
-			index++;		
+			db.Article.create(arr[index]).then(function(data){
+				index++;
+				if(index < arr.length){
+					eliminateDupes(arr, index, cb);
+				}
+				else{
+					cb(arr);
+				}
+			}).catch(function(err){
+				console.log(err);
+	      res.status(500).end();
+			});			
 		}
-
-		if(index < arr.length){
-			eliminateDupes(arr, index, cb);
-		}
-		else{
-			cb(err, arr);
-		}
-	});
+	}).catch(function(err){
+		console.log(err);
+      res.status(500).end();
+ 	});
 };
 
 //Re-direct to Scraper when page is first loaded
@@ -56,39 +63,23 @@ arouter.get("/", function(req, res){
 
 // Gets all of the LA Times articles from the database
 arouter.get("/all", function(req, res){
-	db.articles.find().sort({time:-1}, function(err, data){
+	db.Article.find({}).populate("comments").sort({time:-1}).then(function(data){
 		var renderObj = {
-			articleObj: []
+			articleObj: data
 		};
-		if(err){
-			return console.log(err);
-		}
-		for(var i = 0; i < data.length; i++){
-			renderObj.articleObj[i] = data[i];
-			renderObj.articleObj[i].commentsLength = renderObj.articleObj[i].comments.length;
+		console.log(renderObj.articleObj);
+		for(var i = 0; i < renderObj.articleObj.length; i++){
+			if(renderObj.articleObj[i].comments){
+				renderObj.articleObj[i].commentsLength = renderObj.articleObj[i].comments.length;
+			}else{
+				renderObj.articleObj[i].commentsLength = 0;
+			}
 		}
 		res.render("index", renderObj);
-//		res.json(data);
-	});
-});
-
-//Gets all of the LA Times articles from the database that are primary articles
-arouter.get("/primary", function(req, res){
-	db.articles.find({primary:true}).sort({time:-1}, function(err, data){
-		if(err){
-			return console.log(err);
-		}
-		res.render("index", data);
-	});
-});
-
-//Gets all of the LA Times articles from the database that are secondary articles
-arouter.get("/secondary", function(req, res){
-	db.articles.find({primary:false}).sort({time:-1}, function(err, data){
-		if(err){
-			return console.log(err)
-		}
-		res.render("index", data);
+//		res.json(renderObj);
+	}).catch(function(err){
+		console.log(err);
+    res.status(500).end();
 	});
 });
 
@@ -110,9 +101,7 @@ arouter.get("/scraper", function(req, res){
 				headline: headline,
 				slug: slug,
 				section: section,
-				comments: [],
 				time: now,
-				primary: true
 			};
 			if(link){
 				insertArticles.push(newArticle);	
@@ -129,26 +118,15 @@ arouter.get("/scraper", function(req, res){
 				link: link,
 				headline: headline,
 				section: section,
-				comments: [],
 				time: now,
-				primary: false
 			};
 			if(link){
 				insertArticles.push(newArticle);	
 			}
 		});
 
-		eliminateDupes(insertArticles, 0, function(err, artArr){
-			if (artArr.length > 0){
-				db.articles.insert(artArr, function(err, data){
-					res.redirect("/all");
-					insertArticles = [];
-				});
-			}
-			else{
-				insertArticles = [];
+		eliminateDupes(insertArticles, 0, function(artArr){
 				res.redirect("/all");
-			}
 		});
 	});
 });
@@ -163,15 +141,20 @@ arouter.post("/comments/:id", function(req, res){
 		commentUser: commentUser,
 		commentTime: now
 	}
-	db.articles.find({_id: mongojs.ObjectId(id)}, function(err, data){
-		console.log(data);
-		commentArray = data[0].comments;
-		commentArray.push(newComment);
-		db.articles.update({_id: mongojs.ObjectId(id)}, {$set: {comments: commentArray}}, {}, function(err, result){
-			res.redirect("/all");
-		});
+	db.Comment.create(newComment).then(function(data){
+    return db.Article.findOneAndUpdate({_id: id}, { $push: { comments: data._id } }, { new: true })
+    .then(function(dbArticle) {
+      // If the Library was updated successfully, send it back to the client
+      res.redirect("/all");
+    })
+    .catch(function(error) {
+			console.log(error);
+	    res.status(500).end();
+    });
+	}).catch(function(err){
+		console.log(err);
+    res.status(500).end();
 	});
-
 });
 
 module.exports = arouter;
