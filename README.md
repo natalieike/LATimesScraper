@@ -16,5 +16,5 @@ App to scrape articles from the LA Times. Users can leave comments and read the 
 
 ## URLs
 
-* App:  https://limitless-falls-13132.herokuapp.com/all
+* App:  https://limitless-falls-13132.herokuapp.com
 * GitHub Repository: https://github.com/natalieike/LATimesScraper
